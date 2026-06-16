@@ -27,6 +27,7 @@ const database = getDatabase(app);
 const screens = {
   welcome: document.getElementById('welcome-screen'),
   lobby: document.getElementById('lobby-screen'),
+  configRoles: document.getElementById('config-roles-screen'),
   role: document.getElementById('role-screen'),
   night: document.getElementById('night-screen'),
   day: document.getElementById('day-screen'),
@@ -45,6 +46,10 @@ const controls = {
   playersList: document.getElementById('players-list'),
   startGame: document.getElementById('start-game-btn'),
   leaveRoom: document.getElementById('leave-room-btn'),
+  mafiaCount: document.getElementById('mafia-count'),
+  rolesCheckboxes: document.querySelectorAll('.roles-checkboxes input[type="checkbox"]'),
+  citizenCount: document.getElementById('citizen-count'),
+  confirmRoles: document.getElementById('confirm-roles-btn'),
   roleDisplay: document.getElementById('role-display'),
   roleDescription: document.getElementById('role-description'),
   continueToNight: document.getElementById('continue-to-night'),
@@ -74,20 +79,30 @@ const state = {
   currentRole: null,
   isHost: false,
   hasVoted: false,
-  hasNightAction: false
+  hasNightAction: false,
+  roleConfig: {
+    mafiaCount: 1,
+    selectedRoles: ['doctor', 'detective']
+  },
+  quobidoLinks: {}
 };
 
 localStorage.setItem('mafia-player-id', state.playerId);
 
 controls.createRoom.addEventListener('click', createRoom);
 controls.joinRoom.addEventListener('click', joinRoom);
-controls.startGame.addEventListener('click', startGame);
+controls.startGame.addEventListener('click', openRoleConfig);
 controls.leaveRoom.addEventListener('click', leaveRoom);
+controls.confirmRoles.addEventListener('click', confirmRoleConfig);
 controls.continueToNight.addEventListener('click', () => showScreen('night'));
 controls.nightWait.addEventListener('click', () => alert('Attendez que la phase de nuit se termine.'));
 controls.startVote.addEventListener('click', () => setRoomPhase('vote'));
 controls.voteSubmit.addEventListener('click', submitVote);
 controls.continueAfterResult.addEventListener('click', goToNextPhase);
+controls.mafiaCount.addEventListener('change', updateCitizenCount);
+controls.rolesCheckboxes.forEach(checkbox => {
+  checkbox.addEventListener('change', updateCitizenCount);
+});
 controls.restartBtn = document.getElementById('restart-btn');
 if (controls.restartBtn) {
   controls.restartBtn.addEventListener('click', resetToWelcome);
@@ -126,26 +141,26 @@ function createRoom() {
     hostId: state.playerId,
     phase: 'waiting',
     dayCount: 0,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    players: {
+      [state.playerId]: {
+        name: state.playerName,
+        alive: true,
+        role: 'attente',
+        joinedAt: Date.now()
+      }
+    }
   };
 
-  const playerData = {
-    name: state.playerName,
-    alive: true,
-    role: 'attente',
-    joinedAt: Date.now()
-  };
-
-  const updates = {};
-  updates[`rooms/${code}`] = roomData;
-  updates[`rooms/${code}/players/${state.playerId}`] = playerData;
-
-  update(ref(database, '/'), updates)
+  set(state.roomRef, roomData)
     .then(() => {
       attachRoomListeners(code);
       showScreen('lobby');
     })
-    .catch(err => alert('Impossible de créer la salle : ' + err.message));
+    .catch(err => {
+      console.error('Erreur création salle :', err);
+      alert('Impossible de créer la salle : ' + err.message);
+    });
 }
 
 function joinRoom() {
@@ -247,20 +262,64 @@ function renderLobby(room, players) {
   showScreen('lobby');
 }
 
-function startGame() {
-  const room = state.snapshot;
+function openRoleConfig() {
   if (!state.isHost) return;
+  const room = state.snapshot;
+  const players = room.players ? Object.entries(room.players) : [];
+  if (players.length < 4) return alert('Il faut au moins 4 joueurs pour commencer.');
+  showScreen('configRoles');
+  updateCitizenCount();
+}
+
+function updateCitizenCount() {
+  const mafiaCount = parseInt(controls.mafiaCount.value) || 1;
+  const selectedCount = Array.from(controls.rolesCheckboxes).filter(cb => cb.checked).length;
+  const totalPlayers = state.snapshot.players ? Object.keys(state.snapshot.players).length : 0;
+  const citizenCount = Math.max(0, totalPlayers - mafiaCount - selectedCount);
+  controls.citizenCount.textContent = citizenCount;
+}
+
+function confirmRoleConfig() {
+  const room = state.snapshot;
+  const players = room.players ? Object.entries(room.players) : [];
+  const mafiaCount = parseInt(controls.mafiaCount.value) || 1;
+  const selectedRoles = Array.from(controls.rolesCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+  const roles = [];
+  for (let i = 0; i < mafiaCount; i++) {
+    roles.push('mafia');
+  }
+  selectedRoles.forEach(role => roles.push(role));
+  const totalPlayers = players.length;
+  const citizenCount = Math.max(0, totalPlayers - roles.length);
+  for (let i = 0; i < citizenCount; i++) {
+    roles.push('citizen');
+  }
+
+  startGameWithRoles(roles);
+}
+
+function startGameWithRoles(roles) {
+  const room = state.snapshot;
   const players = room.players ? Object.entries(room.players) : [];
   if (players.length < 4) return alert('Il faut au moins 4 joueurs pour commencer.');
 
-  const roles = buildRoles(players.length);
   const shuffledRoles = shuffle(roles);
   const updates = {};
+  const quobidoLinks = {};
 
   players.sort(([, a], [, b]) => a.joinedAt - b.joinedAt);
   players.forEach(([id, data], index) => {
     updates[`rooms/${state.roomCode}/players/${id}/role`] = shuffledRoles[index];
     updates[`rooms/${state.roomCode}/players/${id}/alive`] = true;
+  });
+
+  shuffledRoles.forEach((role, index) => {
+    if (role === 'quobido' && index + 1 < shuffledRoles.length) {
+      const quobidoId = players[index][0];
+      const linkedId = players[index + 1][0];
+      quobidoLinks[quobidoId] = linkedId;
+    }
   });
 
   updates[`rooms/${state.roomCode}/phase`] = 'night';
@@ -269,16 +328,9 @@ function startGame() {
   updates[`rooms/${state.roomCode}/lastDeath`] = null;
   updates[`rooms/${state.roomCode}/resultMessage`] = null;
   updates[`rooms/${state.roomCode}/voteResults`] = null;
+  updates[`rooms/${state.roomCode}/quobidoLinks`] = Object.keys(quobidoLinks).length > 0 ? quobidoLinks : null;
 
   update(ref(database, '/'), updates).catch(err => alert('Impossible de lancer la partie : ' + err.message));
-}
-
-function buildRoles(count) {
-  const roles = ['mafia', 'doctor', 'detective'];
-  while (roles.length < count) {
-    roles.push('citizen');
-  }
-  return roles;
 }
 
 function shuffle(array) {
@@ -297,8 +349,8 @@ function renderNight(room, players) {
     return showScreen('day');
   }
 
-  if (me.role === 'mafia' || me.role === 'doctor' || me.role === 'detective') {
-    renderNightAction(roleActionForm(me.role, room, players));
+  if (me.role === 'mafia' || me.role === 'doctor' || me.role === 'detective' || me.role === 'quobido') {
+    renderNightAction(roleActionForm(me.role, room, players, room.quobidoLinks));
   } else {
     controls.nightInstruction.textContent = 'Vous dormez pendant la nuit. Attendez le résultat.';
     controls.nightActionArea.innerHTML = '<div class="note">Écran noir, vous ne pouvez rien faire ce tour-ci.</div>';
@@ -314,7 +366,7 @@ function renderNightAction(formHtml) {
   });
 }
 
-function roleActionForm(role, room, players) {
+function roleActionForm(role, room, players, quobidoLinks) {
   const alive = Object.entries(room.players).filter(([, p]) => p.alive);
   const me = room.players[state.playerId];
 
@@ -329,6 +381,10 @@ function roleActionForm(role, room, players) {
   if (role === 'detective') {
     const targets = alive.filter(([id]) => id !== state.playerId);
     return buildOptionForm('Choisissez qui enquêter', targets, 'detectiveTarget');
+  }
+  if (role === 'quobido') {
+    const targets = alive.filter(([id]) => id !== state.playerId);
+    return buildOptionForm('Choisissez qui lier avec vous (si vous mourez, il/elle meurt aussi)', targets, 'quobidoLink');
   }
   return '<div>Vous n’avez pas d’action cette nuit.</div>';
 }
@@ -363,13 +419,17 @@ function evaluateNight() {
     if (actions.processed) return;
 
     const players = room.players || {};
-    const deathTarget = actions.mafiaTarget;
+    const quobidoLinks = room.quobidoLinks || {};
+    let deathTarget = actions.mafiaTarget;
     const protectedTarget = actions.doctorProtect;
     const isSaved = deathTarget === protectedTarget;
-    const killed = isSaved ? null : deathTarget;
+    let killed = isSaved ? null : deathTarget;
 
     if (killed && players[killed]) {
       players[killed].alive = false;
+      if (quobidoLinks[killed]) {
+        players[quobidoLinks[killed]].alive = false;
+      }
     }
 
     const detectiveTarget = actions.detectiveTarget;
@@ -455,6 +515,7 @@ function evaluateVote() {
     if (!room || room.phase !== 'vote') return;
     const votes = room.votes || {};
     const players = room.players || {};
+    const quobidoLinks = room.quobidoLinks || {};
     const alive = Object.entries(players).filter(([, p]) => p.alive);
 
     if (Object.keys(votes).length < alive.length - 1) {
@@ -485,8 +546,9 @@ function evaluateVote() {
     };
 
     if (chosen && players[chosen]) {
-      players[chosen].alive = false;
-      updates[`rooms/${state.roomCode}/players`] = players;
+      players[chosen].alive = false;      if (quobidoLinks[chosen]) {
+        players[quobidoLinks[chosen]].alive = false;
+      }      updates[`rooms/${state.roomCode}/players`] = players;
       updates[`rooms/${state.roomCode}/resultMessage`] = `${players[chosen].name} a été éliminé.e. Rôle : ${formatRole(players[chosen].role)}.`;
     } else {
       updates[`rooms/${state.roomCode}/resultMessage`] = 'Aucune majorité claire. Personne n’est éliminé.e.';
@@ -541,6 +603,7 @@ function formatRole(role) {
     case 'mafia': return 'Mafia';
     case 'doctor': return 'Docteur';
     case 'detective': return 'Détective';
+    case 'quobido': return 'Quobido';
     case 'citizen': return 'Citoyen';
     default: return 'Joueur';
   }
@@ -551,6 +614,7 @@ function getRoleDescription(role) {
     case 'mafia': return 'La nuit, tu choisis une victime secrète.';
     case 'doctor': return 'La nuit, tu peux protéger un joueur.';
     case 'detective': return 'La nuit, tu enquêtes sur un joueur.';
+    case 'quobido': return 'La nuit, tu lies une personne à toi. Si tu meurs, elle meurt aussi (et vice-versa).';
     case 'citizen': return 'Reste silencieux.se pendant la nuit. Défends-toi le jour.';
     default: return 'Attends le début de la partie.';
   }

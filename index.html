@@ -51,6 +51,31 @@
         </div>
       </section>
 
+      <section id="config-roles-screen" class="screen">
+        <div class="card">
+          <h1>Configuration des rôles</h1>
+          <p>Vous êtes le host. Configurez les rôles pour cette partie.</p>
+
+          <div class="config-group">
+            <label for="mafia-count">Nombre de Mafia :</label>
+            <input id="mafia-count" type="number" min="1" value="1" />
+          </div>
+
+          <div class="config-group">
+            <p><strong>Rôles disponibles :</strong></p>
+            <div class="roles-checkboxes">
+              <label><input type="checkbox" value="doctor" checked /> Docteur</label>
+              <label><input type="checkbox" value="detective" checked /> Détective</label>
+              <label><input type="checkbox" value="quobido" /> Quobido</label>
+            </div>
+          </div>
+
+          <p class="note">Les rôles restants seront des Citoyens. Il y a <span id="citizen-count">?</span> Citoyens.</p>
+
+          <button id="confirm-roles-btn" class="primary-btn">Confirmer et lancer</button>
+        </div>
+      </section>
+
       <section id="role-screen" class="screen">
         <div class="card">
           <h1>Rôle attribué</h1>

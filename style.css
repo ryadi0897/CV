@@ -222,6 +222,48 @@ button:hover {
   color: #f8fafc;
 }
 
+.config-group {
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.03);
+}
+
+.config-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.config-group input[type="number"] {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #f8fafc;
+}
+
+.roles-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.roles-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.roles-checkboxes input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
 @media (min-width: 680px) {
   body {
     padding: 32px;
