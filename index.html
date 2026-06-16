@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mafia Party - Jeu de société</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <span class="brand">Mafia Party</span>
+        <p class="subtitle">Multijoueur local sur smartphones avec Firebase</p>
+      </div>
+      <button id="help-btn" class="icon-btn">?</button>
+    </header>
+
+    <main>
+      <section id="welcome-screen" class="screen active">
+        <div class="card">
+          <h1>Créer ou rejoindre une partie</h1>
+          <p>Un joueur crée la salle, les autres rejoignent avec le code.</p>
+
+          <button id="create-room-btn" class="primary-btn">Créer une salle</button>
+
+          <div class="split-row">
+            <input id="join-name" type="text" placeholder="Votre pseudo" autocomplete="off" />
+            <input id="join-code" type="text" placeholder="Code de salle" maxlength="6" autocomplete="off" class="code-input" />
+          </div>
+          <button id="join-room-btn" class="secondary-btn">Rejoindre la salle</button>
+        </div>
+      </section>
+
+      <section id="lobby-screen" class="screen">
+        <div class="card">
+          <div class="room-header">
+            <div>
+              <span class="label">Code de la salle</span>
+              <h2 id="room-code-display">XXXXXX</h2>
+            </div>
+            <div class="status-pill" id="room-status-pill">En attente</div>
+          </div>
+
+          <p id="lobby-instruction">Attendez que tous les joueurs soient connectés.</p>
+          <div class="players-list" id="players-list"></div>
+          <div class="lobby-actions">
+            <button id="start-game-btn" class="primary-btn">Lancer la partie</button>
+            <button id="leave-room-btn" class="secondary-btn">Quitter</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="role-screen" class="screen">
+        <div class="card">
+          <h1>Rôle attribué</h1>
+          <div class="role-bubble" id="role-display">Citoyen</div>
+          <p id="role-description">Votre rôle vous sera utile la nuit.</p>
+          <button id="continue-to-night" class="primary-btn">Continuer</button>
+        </div>
+      </section>
+
+      <section id="night-screen" class="screen">
+        <div class="card">
+          <h1>Phase de nuit</h1>
+          <p id="night-instruction">Le narrateur gère le déroulé. Suivez votre rôle.</p>
+          <div id="night-action-area"></div>
+          <button id="night-wait-btn" class="secondary-btn">Je patiente</button>
+        </div>
+      </section>
+
+      <section id="day-screen" class="screen">
+        <div class="card">
+          <h1>Phase de jour</h1>
+          <p id="day-announcement">...</p>
+          <div class="day-info">
+            <p id="day-count">Jour 1</p>
+            <p class="note">Débat vocal en vrai. Quand vous êtes prêts, lancez le vote.</p>
+          </div>
+          <button id="start-vote-btn" class="primary-btn">Lancer le vote</button>
+        </div>
+      </section>
+
+      <section id="vote-screen" class="screen">
+        <div class="card">
+          <h1>Vote d'élimination</h1>
+          <p id="vote-instruction">Choisissez un joueur vivant pour éliminer.</p>
+          <div id="vote-list" class="players-list"></div>
+          <button id="vote-submit-btn" class="primary-btn">Voter</button>
+        </div>
+      </section>
+
+      <section id="result-screen" class="screen">
+        <div class="card">
+          <h1>Résultat</h1>
+          <p id="result-message">Le jeu continue...</p>
+          <button id="continue-after-result" class="primary-btn">Phase suivante</button>
+        </div>
+      </section>
+
+      <section id="game-over-screen" class="screen">
+        <div class="card">
+          <h1>Partie terminée</h1>
+          <p id="game-over-message">...</p>
+          <div class="final-box" id="final-details"></div>
+          <button id="restart-btn" class="primary-btn">Retour à l'accueil</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="player-badge-template">
+    <div class="player-badge">
+      <span class="player-name"></span>
+      <span class="player-status"></span>
+    </div>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
